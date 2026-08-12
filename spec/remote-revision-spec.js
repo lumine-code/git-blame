@@ -1,169 +1,137 @@
-var RemoteRevision = require('../lib/util/RemoteRevision');
+const { RemoteRevision, parseRemote, render, templateForHost } = require("../lib/remote-revision");
 
-describe('RemoteRevision', function () {
+describe("remote-revision", () => {
+  describe("parseRemote", () => {
+    it("parses an https remote", () => {
+      expect(parseRemote("https://github.com/owner/repo.git")).toEqual({
+        host: "github.com",
+        project: "owner",
+        repo: "repo",
+      });
+    });
 
-  var DEFAULT_HASH = '12345';
-  var instance;
-  var fakeRemoteUrl = 'git@github.com/alexcorre/git-blame.git';
+    it("parses an scp-style ssh remote", () => {
+      expect(parseRemote("git@github.com:owner/repo.git")).toEqual({
+        host: "github.com",
+        project: "owner",
+        repo: "repo",
+      });
+    });
 
-  beforeEach(function () {
-    instance = new RemoteRevision(fakeRemoteUrl);
+    it("parses an ssh:// remote", () => {
+      expect(parseRemote("ssh://git@github.com/owner/repo.git")).toEqual({
+        host: "github.com",
+        project: "owner",
+        repo: "repo",
+      });
+    });
+
+    it("keeps a nested group in the project", () => {
+      // Upstream matched only the last two path segments, so the group was
+      // dropped and the resulting link 404'd.
+      expect(parseRemote("https://gitlab.com/group/subgroup/repo.git")).toEqual({
+        host: "gitlab.com",
+        project: "group/subgroup",
+        repo: "repo",
+      });
+    });
+
+    it("tolerates a missing .git suffix and a trailing slash", () => {
+      expect(parseRemote("https://github.com/owner/repo/")).toEqual({
+        host: "github.com",
+        project: "owner",
+        repo: "repo",
+      });
+    });
+
+    it("returns null for something that is not a remote", () => {
+      expect(parseRemote("")).toBe(null);
+      expect(parseRemote(null)).toBe(null);
+      expect(parseRemote("not a url")).toBe(null);
+      expect(parseRemote("https://github.com/owner")).toBe(null);
+    });
   });
 
-  describe('parseProjectAndRepo', function () {
-
-    beforeEach(function () {
-      instance.hash = DEFAULT_HASH;
-      instance.remote = null;
+  describe("templateForHost", () => {
+    it("recognises the three hosts it knows", () => {
+      expect(templateForHost("github.com")).toContain("/commit/");
+      expect(templateForHost("gitlab.com")).toContain("/commit/");
+      expect(templateForHost("bitbucket.org")).toContain("/commits/");
     });
 
-    afterEach(function () {
-      instance.hash = null;
-      instance.remote = fakeRemoteUrl;
+    it("recognises a subdomain of a known host", () => {
+      expect(templateForHost("www.github.com")).not.toBe(null);
     });
 
-    it('Should return an empty object if pattern does not match', function () {
-      var weirdRemote = 'NOT_MATCHING';
-      instance.remote = weirdRemote;
-
-      var output = instance.parseProjectAndRepo();
-      expect(output).toEqual({});
+    it("does not match a host that merely contains the name", () => {
+      // Upstream tested /github.com/ with unescaped dots against the whole
+      // remote, so `githubXcom.example.org` matched.
+      expect(templateForHost("github-com.example.org")).toBe(null);
+      expect(templateForHost("notgithub.com.example.org")).toBe(null);
     });
 
-    it('Should parse a standard github url correctly', function () {
-      var githubRemote = 'git@github.com:project/someRepo.git';
-      instance.remote = githubRemote;
-
-      var output = instance.parseProjectAndRepo();
-
-      expect(output).toEqual({
-        project: 'project',
-        repo: 'someRepo',
-      });
+    it("returns null for an unknown host", () => {
+      expect(templateForHost("git.example.com")).toBe(null);
     });
-
-    it('Should parse a standard github url without the .git ending correctly', function () {
-      var githubRemote = 'git@github.com:project/someRepo';
-      instance.remote = githubRemote;
-
-      var output = instance.parseProjectAndRepo();
-
-      expect(output).toEqual({
-        project: 'project',
-        repo: 'someRepo',
-      });
-    });
-
-    it('Should parse a read only github url correctly', function () {
-      var githubHttpRemote = 'https://github.com/project/someRepo.git';
-      instance.remote = githubHttpRemote;
-
-      var output = instance.parseProjectAndRepo();
-
-      expect(output).toEqual({
-        project: 'project',
-        repo: 'someRepo',
-      });
-    });
-
-    it('Should parse a repo url with dashes', function () {
-      var githubHttpRemote = 'https://github.com/some-project/some-repo.git';
-      instance.remote = githubHttpRemote;
-
-      var output = instance.parseProjectAndRepo();
-
-      expect(output).toEqual({
-        project: 'some-project',
-        repo: 'some-repo',
-      });
-    });
-
-    it('Should parse a repo url with dashes and wthout a .git ending correctly', function () {
-      var githubHttpRemote = 'https://github.com/some-project/some-repo';
-      instance.remote = githubHttpRemote;
-
-      var output = instance.parseProjectAndRepo();
-
-      expect(output).toEqual({
-        project: 'some-project',
-        repo: 'some-repo',
-      });
-    });
-
-    it('Should work with a url with a port', function () {
-      var portRemoteUrl = 'ssh://git@git.my-company.com:2222/group/repo-name.git';
-      instance.remote = portRemoteUrl;
-
-      var output = instance.parseProjectAndRepo();
-
-      expect(output).toEqual({
-        project: 'group',
-        repo: 'repo-name',
-      });
-    });
-
-    it('Should work with a url with a port and colon', function () {
-      var portRemoteUrl = 'git@git.my-company.com:2222:group/repo-name.git';
-      instance.remote = portRemoteUrl;
-
-      var output = instance.parseProjectAndRepo();
-
-      expect(output).toEqual({
-        project: 'group',
-        repo: 'repo-name',
-      });
-    });
-
-    it('Should work without a project', function () {
-      var repoOnlyUrl = 'git@git.my-company.com:repo-name.git';
-      instance.remote = repoOnlyUrl;
-
-      var output = instance.parseProjectAndRepo();
-
-      expect(output).toEqual({
-        project: 'repo-name',
-        repo: 'repo-name',
-      });
-    });
-
-    it('Should work when there is a . in the repo name', function () {
-      var dotRepoUrl = 'git@github.com:MoOx/moox.github.io.git';
-      instance.remote = dotRepoUrl;
-
-      var output = instance.parseProjectAndRepo();
-
-      expect(output).toEqual({
-        project: 'MoOx',
-        repo: 'moox.github.io',
-      });
-    });
-
-    it('Should work when there is a . in the project name', function () {
-      var dotRepoUrl = 'git@github.com:Mo.Ox/moox.github.io.git';
-      instance.remote = dotRepoUrl;
-
-      var output = instance.parseProjectAndRepo();
-
-      expect(output).toEqual({
-        project: 'Mo.Ox',
-        repo: 'moox.github.io',
-      });
-    });
-
   });
 
-  describe('repos with no remotes named origin', function () {
-
-    it('Should return an empty object if no remote repo url is passed in', function () {
-
-      // this will be the case when using Atom's repo.getOriginURL() when there
-      // is no remote named origin
-
-      instance = new RemoteRevision(undefined);
-      var output = instance.parseProjectAndRepo();
-      expect(output).toEqual({});
+  describe("render", () => {
+    it("substitutes every placeholder it knows", () => {
+      expect(
+        render("https://{host}/{project}/{repo}/commit/{revision}", {
+          host: "h",
+          project: "p",
+          repo: "r",
+          revision: "abc",
+        }),
+      ).toBe("https://h/p/r/commit/abc");
     });
 
+    it("leaves an unknown placeholder alone", () => {
+      expect(render("{nope}/{repo}", { repo: "r" })).toBe("{nope}/r");
+    });
+
+    it("does not evaluate the template", () => {
+      // The template can come from a repository's own git config, so it must
+      // never be compiled into a function the way lodash templates were.
+      const evil = "https://x/{revision}<%= (()=>{throw new Error('ran')})() %>";
+      expect(render(evil, { revision: "abc" })).toBe(
+        "https://x/abc<%= (()=>{throw new Error('ran')})() %>",
+      );
+    });
   });
 
+  describe("RemoteRevision", () => {
+    it("builds a GitHub commit url", () => {
+      const remote = new RemoteRevision("git@github.com:owner/repo.git");
+      expect(remote.url("abc123")).toBe("https://github.com/owner/repo/commit/abc123");
+    });
+
+    it("builds a Bitbucket commit url with its different path", () => {
+      const remote = new RemoteRevision("https://bitbucket.org/owner/repo.git");
+      expect(remote.url("abc123")).toBe("https://bitbucket.org/owner/repo/commits/abc123");
+    });
+
+    it("uses a custom template ahead of a known host", () => {
+      const remote = new RemoteRevision(
+        "https://github.com/owner/repo.git",
+        "https://mirror.example.com/{project}/{repo}/c/{revision}",
+      );
+      expect(remote.url("abc123")).toBe("https://mirror.example.com/owner/repo/c/abc123");
+    });
+
+    it("uses a custom template for an unknown host", () => {
+      const remote = new RemoteRevision(
+        "https://git.example.com/owner/repo.git",
+        "https://git.example.com/{project}/{repo}/commit/{revision}",
+      );
+      expect(remote.url("abc123")).toBe("https://git.example.com/owner/repo/commit/abc123");
+    });
+
+    it("returns null when there is nowhere to link to", () => {
+      expect(new RemoteRevision("https://git.example.com/owner/repo").url("abc")).toBe(null);
+      expect(new RemoteRevision(null).url("abc")).toBe(null);
+      expect(new RemoteRevision("git@github.com:owner/repo.git").url(null)).toBe(null);
+    });
+  });
 });
