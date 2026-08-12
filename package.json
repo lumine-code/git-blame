@@ -54,7 +54,7 @@
       "description": "Width of the blame gutter in pixels. Dragging the gutter's right edge changes this too.",
       "type": "integer",
       "minimum": 40,
-      "default": 210
+      "default": 250
     },
     "dateFormat": {
       "title": "Date Format",
