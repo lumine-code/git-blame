@@ -1,18 +1,22 @@
 {
+  "menu": [
+    {
+      "label": "Packages",
+      "submenu": [
+        {
+          "label": "Git Blame",
+          "submenu": [{ "label": "Toggle", "command": "git-blame:toggle" }]
+        }
+      ]
+    }
+  ],
   "context-menu": {
-    "atom-text-editor": [{
-      "label": "Toggle Git Blame",
-      "command": "git-blame:toggle"
-    }]
-  },
-  "menu": [{
-    "label": "Packages",
-    "submenu": [{
-      "label": "Git Blame",
-      "submenu": [{
-        "label": "Toggle Git Blame",
-        "command": "git-blame:toggle"
-      }]
-    }]
-  }]
+    // Fenced at both ends: a context menu normalizes its separators, and
+    // fencing keeps this block grouped whatever else contributes around it.
+    "lumine-text-editor:not([mini])": [
+      { "type": "separator" },
+      { "label": "Toggle Git Blame", "command": "git-blame:toggle" },
+      { "type": "separator" }
+    ]
+  }
 }

@@ -1,95 +1,81 @@
-// The ui-variables file is provided by base themes provided by Atom.
-//
-// See https://github.com/atom/atom-dark-ui/blob/master/stylesheets/ui-variables.less
-// for a full listing of what's available.
-@import "ui-variables";
-@import "mixins";
+lumine-text-editor .gutter[gutter-name="git-blame"] {
+  /* Set as a custom property on the editor element when the width changes.
+     Upstream appended a <style> element to the document head instead, one per
+     gutter, never removed, naming a selector that no longer exists. */
+  width: var(--git-blame-column-width, 210px);
+  border-left: 1px solid var(--pane-item-border-color);
+  border-right: 1px solid var(--pane-item-border-color);
 
-@git-blame-bg-color: @base-background-color;
-
-atom-text-editor .gutter[gutter-name="com.alexcorre.git-blame"] {
-  border-right: 2px solid @pane-item-border-color;
-  border-left: 2px solid @pane-item-border-color;
-
-  .blame-line-marker {
+  .git-blame-marker {
     width: 100%;
   }
 
-  .resize-container {
-    .resize {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      right: 0;
-      width: 8px;
-      cursor: col-resize;
-    }
-  }
-
-  .blame-line {
+  .git-blame-line {
+    position: relative;
+    display: flex;
+    gap: var(--component-padding, 10px);
     width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-align: left;
-    white-space: nowrap;
     padding: 0 4px;
+    overflow: hidden;
+    white-space: nowrap;
+    cursor: pointer;
 
-    &.lighter {
-      background-color: lighten(@git-blame-bg-color, 3%);
+    &.git-blame-odd {
+      background-color: color-mix(in srgb, var(--base-background-color) 97%, white);
     }
 
-    &.darker {
-      background-color: darken(@git-blame-bg-color, 3%);
+    &.git-blame-even {
+      background-color: color-mix(in srgb, var(--base-background-color) 97%, black);
     }
 
-    &.no-commit {
-      .committer, .date {
-        display: none;
-      }
+    &.git-blame-coloured {
+      border-right: 2px solid var(--git-blame-author-colour, transparent);
     }
 
-    a.hash {
-      color: @text-color;
-      text-decoration: none;
+    &.git-blame-uncommitted {
+      cursor: default;
+      font-style: italic;
+      color: var(--text-color-subtle);
     }
 
-    a.hash:hover {
+    &:hover .git-blame-hash {
       text-decoration: underline;
     }
+  }
 
-    .hash, .date {
-      padding-right: @component-padding;
-    }
+  .git-blame-hash {
+    color: var(--text-color);
+    font-variant-numeric: tabular-nums;
+  }
 
+  .git-blame-date {
+    color: var(--text-color-subtle);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The one element allowed to grow, so the ellipsis lands on the name rather
+     than on the hash or the date. */
+  .git-blame-author {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-color);
+  }
+
+  .git-blame-pending {
+    flex: 1 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Every row carries one, so together they form a continuous drag edge. */
+  .git-blame-resize {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 8px;
+    cursor: col-resize;
   }
 }
-
-// atom-text-editor.editor .git-blame-mount,
-// atom-text-editor .git-blame-mount {
-//   position: relative;
-//
-//   .git-blame {
-//
-//     .git-blame-resize-handle {
-//       .stretch(@left: auto);
-//       width: 10px;
-//       cursor: col-resize;
-//       z-index: 1;
-//     }
-//
-//     .git-blame-scroller {
-//       .stretch();
-//       overflow: hidden;
-//       background-color: @git-blame-bg-color;
-//       border-right: 1px solid @pane-item-border-color;
-//       border-left: 1px solid @pane-item-border-color;
-//
-//       .blame-lines {
-//         padding-bottom: 30px;
-//         white-space: nowrap;
-//
-//
-//       }
-//     }
-//   }
-// }

@@ -1,5 +1,12 @@
 {
-  "atom-text-editor:not([mini])": {
-    "ctrl-b": "git-blame:toggle"
+  // Part of the `alt-g` family, shared with git-panel (alt-g g), github-panel
+  // (alt-g h), git-diff, git-command, git-center and open-repository. `a` for
+  // annotate: open-repository already holds `alt-g b` for opening blame on the
+  // host's website.
+  //
+  // Editor-scoped rather than global because the command is about the file in
+  // front of you; `:not([mini])` keeps it out of the find fields and dialogs.
+  "lumine-text-editor:not([mini])": {
+    "alt-g a": "git-blame:toggle"
   }
 }

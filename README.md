@@ -1,91 +1,70 @@
 # git-blame
 
-> Toggle git-blame annotations in Atom.
+Show the commit that last changed each line in a gutter.
 
-[![Travis](https://img.shields.io/travis/alexcorre/git-blame.svg)](https://travis-ci.org/alexcorre/git-blame)
-[![apm](https://img.shields.io/apm/v/git-blame.svg)](https://atom.io/packages/git-blame)
-[![apm](https://img.shields.io/apm/dm/git-blame.svg)](https://atom.io/packages/git-blame)
+Every line gets the commit's hash, date and author beside it, with consecutive
+lines from the same commit banded together. Clicking a line opens that commit on
+the repository's hosting service, or copies its hash when there is nowhere to
+open it.
 
-![screenshot](/images/screenshot2.png?raw=true)
+## Features
+
+- **Per-line attribution**: the hash, date and author of the commit each line came from.
+- **Commit banding**: consecutive lines from one commit share a background, so a commit reads as a block.
+- **Commit links**: GitHub, GitLab and Bitbucket are recognised, and any other host can be described with a template.
+- **Author colours**: an optional stripe coloured from the author's name, stable across files and sessions.
+- **Resizable**: drag the gutter's right edge to set its width.
+- **Refreshes on save**: blame is re-read when the file is saved, so it does not go stale behind you.
+- **Off the renderer thread**: blame is read through the editor's Git worker, so a large file does not block typing.
+
+## Installation
+
+To install `git-blame` search for _git-blame_ in the Install pane of the Lumine settings or run `lumine --install lumine-code/git-blame`.
+
+## Commands
+
+Commands available in `lumine-workspace`:
+
+- `git-blame:toggle`: show or hide the blame gutter for the current editor.
 
 ## Usage
 
-Use `ctrl-b` to activate blame. Alternatively, right click the file you want to blame and select `Toggle Git Blame` from the dropdown.
+The gutter reads blame for the file in the active editor, so the file has to be
+saved and inside a Git repository. Lines you have written but not committed are
+marked as such rather than left blank. When the editor refuses, it says which of
+those reasons applied.
 
-![right-click-activate](https://raw.githubusercontent.com/alexcorre/git-blame/master/images/right-click-activate.png)
+Submodules need no special handling: the editor's repository registry resolves
+the file to the repository that actually contains it.
 
-### See the revision diff
+## Configuration
 
-Click on the revision hash in the gutter to visit the configured repository diff site. Hosts supported out of the box are:
-
-* [GitHub](https://github.com/)
-* [Bitbucket](https://bitbucket.org/)
-* [GitLab](https://gitlab.com/)
-
-If the remote repo has a URL we don't recognize, or if there is no remote named
-`origin`, the commit hash will be copied to the clipboard.
-Custom remotes can be set globally via options. See below.
-
-## Options
-
-### Ignore White Space Diffs
-
-If this option is selected, the `git blame` command will be run with `-w` option.
-
-### Show First Names
-
-If this option is selected, only the first word of the author's name will be displayed. (If both Show First Names and Show Last Names are enabled, the entire author name will be displayed, regardless of whether it contains only two name parts).
-
-### Show Last Names
-
-If this option is selected, only the last word of the author's name will be displayed. (If both Show First Names and Show Last Names are enabled, the entire author name will be displayed, regardless of whether it contains only two name parts).
-
-### Date Format String
-
-Default date format is `YYYY-MM-DD`. This feature is backed by [moment.js](http://momentjs.com/). Any formats [supported by moment](http://momentjs.com/docs/#/displaying/format/) are valid here.
-
-### Color commit authors
-If this option is selected, the commit authors will appear with a unique color to make them easily recognisable.
-
-### Custom Remote Repo Url
-This plugin will first check to see if your repo is backed by **GitHub**, **Bitbucket**, or **GitLab** so nothing is required if your repo is hosted on one of these.
-
-
-If its not, you can easily set a custom revision URL string like so:
-- From the settings view go to settings for this package *Git Blame*
-- Check the box for "Use Custom Url Template If Standard Remotes Fail"
-- Set your url format string in the box labeled Custom Commit Url String
-
-![url-settings](https://raw.githubusercontent.com/alexcorre/git-blame/master/images/url-settings.png)
-
-The URL string should contain the following three placeholder variables wrapped in underscore template delimiters like so: `<%- variable %>`.
-- `project` - Will be replaced with the name of the project in your remote git repository. For this repo it would be `alexcorre`.
-- `repo` - Will be replaced with the name of the repository. For this repo it would be `git-blame`.
-- `revision` - Will be replaced with the full git revision hash you clicked on.
-
-I'll use github as an example. Its already supported out of the box, but if it wasn't its custom url string would be:
+Commit links work out of the box for GitHub, GitLab and Bitbucket. For any other
+host, set a template using `{host}`, `{project}`, `{repo}` and `{revision}`:
 
 ```
-https://github.com/<%- project %>/<%- repo %>/commit/<%- revision %>
-```
-So when you clicked on hash revision 12345 in this git-blame repository, you would visit the following url:
-
-```
-https://github.com/alexcorre/git-blame/commit/12345
+https://git.example.com/{project}/{repo}/commit/{revision}
 ```
 
-You can also set a custom URL in your git config. If present, it will be used insted of the one in the package settings.
-You can add or change it with this command:
+A repository can also carry its own template, which wins over the setting, so a
+self-hosted forge can be configured once per clone rather than per user:
+
 ```bash
-git config --local atom-git-blame.repositoryUrlTemplate "http://my_server/gitweb/?p=<%- repo %>.git;a=commit;h=<%- revision %>"
+git config git-blame.commitUrlTemplate "https://git.example.com/{project}/{repo}/commit/{revision}"
 ```
 
-Or by edit your `.git/config` and add an entry like this:
-```ini
-[atom-git-blame]
-	repositoryUrlTemplate = "http://my_server/gitweb/?p=<%- repo %>.git;a=commit;h=<%- revision %>"
+## Customization
+
+The gutter is styled through the theme's own variables. To change how a blame
+line reads, paste something like this into your `styles.css`:
+
+```css
+lumine-text-editor .gutter[gutter-name="git-blame"] .git-blame-line {
+  font-size: 0.9em;
+  opacity: 0.8;
+}
 ```
 
-## Release History
+## Contributing
 
-This project uses [standard-version](https://github.com/conventional-changelog/standard-version). Commit messages should use these [conventions](https://github.com/bcoe/conventional-changelog-standard/blob/master/convention.md). `fix`, `feat`, and `perf` commits will show in the [CHANGELOG.md](CHANGELOG.md) generated upon release.
+Got ideas to make this package better, found a bug, or want to help add new features? Just drop your thoughts on GitHub. Any feedback is welcome!

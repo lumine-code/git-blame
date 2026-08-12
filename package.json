@@ -1,37 +1,128 @@
 {
   "name": "git-blame",
-  "main": "./lib/index",
-  "version": "1.8.0",
-  "description": "Toggle git-blame annotations in the gutter of atom editor.",
+  "author": "lumine-code",
+  "description": "Show the commit that last changed each line in a gutter.",
+  "repository": "https://github.com/lumine-code/git-blame",
+  "bugs": {
+    "url": "https://github.com/lumine-code/git-blame/issues"
+  },
+  "keywords": [
+    "annotate",
+    "authorship",
+    "commit",
+    "gutter",
+    "history"
+  ],
+  "version": "1.0.0",
+  "license": "MIT",
+  "engines": {
+    "lumine": "^1.0.0"
+  },
+  "backgroundTips": [
+    "You can see who last changed each line, and when, with {{ 'git-blame:toggle' | keystroke }}"
+  ],
+  "main": "./lib/main",
+  "files": [
+    "keymaps",
+    "lib",
+    "menus",
+    "spec",
+    "styles"
+  ],
   "activationCommands": {
-    "atom-text-editor": [
+    "lumine-workspace": [
       "git-blame:toggle"
     ]
   },
-  "repository": "https://github.com/alexcorre/git-blame",
-  "license": "MIT",
-  "engines": {
-    "atom": ">=1.0.0"
-  },
   "scripts": {
-    "bump": "standard-version",
-    "lint": "eslint .",
-    "lint:fix": "eslint --fix .",
-    "test": "npm run lint"
-  },
-  "dependencies": {
-    "lodash": "^4.17.4",
-    "loophole": "1.0.x",
-    "moment": "^2.19.4",
-    "react": "^15.6.1",
-    "react-dom": "^15.6.1",
-    "recompose": "^0.22.0"
+    "test": "lumine --test spec",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "@workpop/eslint-config-workpop": "^1.0.0",
-    "eslint": "^4.7.2",
-    "fs-plus": "^3.0.1",
-    "standard-version": "^4.0.0",
-    "temp": "^0.8.3"
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-n": "^18.2.2",
+    "globals": "^17.9.0",
+    "prettier": "^3.9.6"
+  },
+  "configSchema": {
+    "columnWidth": {
+      "title": "Column Width",
+      "description": "Width of the blame gutter in pixels. Dragging the gutter's right edge changes this too.",
+      "type": "integer",
+      "minimum": 40,
+      "default": 210
+    },
+    "dateFormat": {
+      "title": "Date Format",
+      "description": "How each commit's date is written.",
+      "type": "string",
+      "enum": [
+        {
+          "value": "short",
+          "description": "Short — 11/08/2026"
+        },
+        {
+          "value": "long",
+          "description": "Long — 11 Aug 2026"
+        },
+        {
+          "value": "iso",
+          "description": "ISO — 2026-08-11"
+        },
+        {
+          "value": "relative",
+          "description": "Relative — 3 days ago"
+        }
+      ],
+      "default": "short"
+    },
+    "authorName": {
+      "title": "Author Name",
+      "description": "How much of the author's name is shown.",
+      "type": "string",
+      "enum": [
+        {
+          "value": "full",
+          "description": "Full name"
+        },
+        {
+          "value": "first",
+          "description": "First name only"
+        },
+        {
+          "value": "last",
+          "description": "Last name only"
+        }
+      ],
+      "default": "full"
+    },
+    "showHash": {
+      "title": "Show Commit Hash",
+      "description": "Show the abbreviated commit hash beside each line.",
+      "type": "boolean",
+      "default": true
+    },
+    "colorCommitAuthors": {
+      "title": "Colour Commit Authors",
+      "description": "Mark each line with a stripe whose colour is derived from the author's name.",
+      "type": "boolean",
+      "default": false
+    },
+    "ignoreWhitespace": {
+      "title": "Ignore Whitespace Changes",
+      "description": "Attribute a line to the commit that last changed its content, looking past commits that only reindented it.",
+      "type": "boolean",
+      "default": false
+    },
+    "commitUrlTemplate": {
+      "title": "Commit URL Template",
+      "description": "Link template for hosts other than GitHub, GitLab and Bitbucket, which are recognised already. Use `{host}`, `{project}`, `{repo}` and `{revision}`, for example `https://git.example.com/{project}/{repo}/commit/{revision}`. A repository's own `git-blame.commitUrlTemplate` git config value overrides this.",
+      "type": "string",
+      "default": ""
+    }
   }
 }
