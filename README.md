@@ -2,10 +2,7 @@
 
 Show the commit that last changed each line in a gutter.
 
-Every line gets the commit's hash, date and author beside it, with consecutive
-lines from the same commit banded together. Clicking a line opens that commit on
-the repository's hosting service, or copies its hash when there is nowhere to
-open it.
+Every line gets the commit's hash, date and author beside it, with consecutive lines from the same commit banded together. Clicking a line opens that commit on the repository's hosting service, or copies its hash when there is nowhere to open it.
 
 ## Features
 
@@ -19,7 +16,7 @@ open it.
 
 ## Installation
 
-To install `git-blame` search for _git-blame_ in the Install pane of the Lumine settings or run `lumine --install lumine-code/git-blame`.
+To install `git-blame` search for it in the Install pane of the Lumine settings, or run the command `lumine --install lumine-code/git-blame`.
 
 ## Commands
 
@@ -29,25 +26,19 @@ Commands available in `lumine-workspace`:
 
 ## Usage
 
-The gutter reads blame for the file in the active editor, so the file has to be
-saved and inside a Git repository. Lines you have written but not committed are
-marked as such rather than left blank. When the editor refuses, it says which of
-those reasons applied.
+The gutter reads blame for the file in the active editor, so the file has to be saved and inside a Git repository. Lines you have written but not committed are marked as such rather than left blank. When the editor refuses, it says which of those reasons applied.
 
-Submodules need no special handling: the editor's repository registry resolves
-the file to the repository that actually contains it.
+Submodules need no special handling: the editor's repository registry resolves the file to the repository that actually contains it.
 
 ## Configuration
 
-Commit links work out of the box for GitHub, GitLab and Bitbucket. For any other
-host, set a template using `{host}`, `{project}`, `{repo}` and `{revision}`:
+Commit links work out of the box for GitHub, GitLab and Bitbucket. For any other host, set a template using `{host}`, `{project}`, `{repo}` and `{revision}`:
 
 ```
 https://git.example.com/{project}/{repo}/commit/{revision}
 ```
 
-A repository can also carry its own template, which wins over the setting, so a
-self-hosted forge can be configured once per clone rather than per user:
+A repository can also carry its own template, which wins over the setting, so a self-hosted forge can be configured once per clone rather than per user:
 
 ```bash
 git config git-blame.commitUrlTemplate "https://git.example.com/{project}/{repo}/commit/{revision}"
@@ -55,8 +46,7 @@ git config git-blame.commitUrlTemplate "https://git.example.com/{project}/{repo}
 
 ## Customization
 
-The gutter is styled through the theme's own variables. To change how a blame
-line reads, paste something like this into your `styles.css`:
+The gutter is styled through the theme's own variables. To change how a blame line reads, paste something like this into your `styles.css`:
 
 ```css
 lumine-text-editor .gutter[gutter-name="git-blame"] .git-blame-line {
