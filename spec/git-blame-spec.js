@@ -293,6 +293,22 @@ describe("git-blame", () => {
       await main.gutterForEditor(editor).toggle();
       expect(document.getElementById("com.alexcorre.git-blame.style")).toBe(null);
     });
+
+    // Widening the gutter narrows the text, so without this a soft-wrapped
+    // editor re-wraps on every mousemove of the drag.
+    it("declares a layout drag for as long as the handle is held", async () => {
+      const drag = jasmine.createSpyObj("layoutDrag", ["dispose"]);
+      spyOn(lumine.workspace, "beginLayoutDrag").and.returnValue(drag);
+      await main.gutterForEditor(editor).toggle();
+
+      const handle = editorElement.querySelector(".git-blame-resize");
+      handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      expect(lumine.workspace.beginLayoutDrag).toHaveBeenCalled();
+      expect(drag.dispose).not.toHaveBeenCalled();
+
+      document.dispatchEvent(new MouseEvent("mouseup"));
+      expect(drag.dispose).toHaveBeenCalled();
+    });
   });
 
   describe("teardown", () => {
