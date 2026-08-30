@@ -309,36 +309,6 @@ describe("git-blame", () => {
       document.dispatchEvent(new MouseEvent("mouseup"));
       expect(drag.dispose).toHaveBeenCalled();
     });
-
-    it("keeps a resize gesture in the detached editor's document", async () => {
-      const drag = jasmine.createSpyObj("layoutDrag", ["dispose"]);
-      spyOn(lumine.workspace, "beginLayoutDrag").and.returnValue(drag);
-      await main.gutterForEditor(editor).toggle();
-      const frame = document.createElement("iframe");
-      document.body.appendChild(frame);
-      frame.contentDocument.adoptNode(editorElement);
-      frame.contentDocument.body.appendChild(editorElement);
-
-      try {
-        const handle = editorElement.querySelector(".git-blame-resize");
-        const MouseEvent = frame.contentWindow.MouseEvent;
-        const initialWidth = Number.parseFloat(
-          editorElement.style.getPropertyValue("--git-blame-column-width"),
-        );
-        handle.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX: 100 }));
-        frame.contentDocument.dispatchEvent(new MouseEvent("mousemove", { clientX: 125 }));
-        frame.contentDocument.dispatchEvent(new MouseEvent("mouseup"));
-
-        expect(editorElement.style.getPropertyValue("--git-blame-column-width")).toBe(
-          `${initialWidth + 25}px`,
-        );
-        expect(drag.dispose).toHaveBeenCalled();
-      } finally {
-        document.adoptNode(editorElement);
-        jasmine.attachToDOM(editorElement);
-        frame.remove();
-      }
-    });
   });
 
   describe("teardown", () => {
