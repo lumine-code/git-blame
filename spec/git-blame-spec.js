@@ -253,12 +253,27 @@ describe("git-blame", () => {
 
   describe("clicking a line", () => {
     it("opens the commit on the host", async () => {
-      spyOn(lumine.shell, "openExternal");
+      spyOn(lumine.shell, "openExternal").and.resolveTo();
       await main.gutterForEditor(editor).toggle();
 
       blameElements()[0].click();
       expect(lumine.shell.openExternal).toHaveBeenCalledWith(
         `https://github.com/owner/repo/commit/${SHA_ONE}`,
+      );
+    });
+
+    it("reports a rejected commit URL without an unhandled promise", async () => {
+      const error = new Error("unsupported URL");
+      spyOn(lumine.shell, "openExternal").and.rejectWith(error);
+      spyOn(lumine.notifications, "addWarning");
+      await main.gutterForEditor(editor).toggle();
+
+      blameElements()[0].click();
+      await flushMicrotasks();
+
+      expect(lumine.notifications.addWarning).toHaveBeenCalledWith(
+        "Unable to open the commit URL.",
+        { detail: error.message, dismissable: true },
       );
     });
 
