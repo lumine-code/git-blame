@@ -29,11 +29,6 @@
     "spec",
     "styles"
   ],
-  "activationCommands": {
-    "lumine-workspace": [
-      "git-blame:toggle"
-    ]
-  },
   "scripts": {
     "test": "lumine --test spec",
     "lint": "eslint . --max-warnings 0",
