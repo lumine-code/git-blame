@@ -536,6 +536,125 @@ describe("git-blame", () => {
       );
     });
 
+    describe("smooth scrolling", () => {
+      async function showSmoothGutter(blockRows = 240) {
+        editor.setText(Array.from({ length: 240 }, (_, row) => `line ${row}`).join("\n"));
+        repository.getBlame.and.resolveTo({
+          revision: null,
+          lines: Array.from({ length: 240 }, (_, row) =>
+            blameLine(row + 1, row < blockRows ? SHA_ONE : SHA_TWO, "Ada"),
+          ),
+        });
+        editorElement.setHeight(160);
+        await main.gutterForEditor(editor).toggle();
+        await settleDisplay();
+        const component = editorElement.getComponent();
+        // Use the editor's real frame path, with a deterministic animation clock.
+        component.scrollAnimator.raf = () => 0;
+        component.scrollAnimator.caf = () => {};
+        return component;
+      }
+
+      async function scrollFrames(component, top, inspectFrame) {
+        const animator = component.scrollAnimator;
+        animator.scrollTo({ top, smoothness: 8 });
+        expect(animator.isAnimating()).toBe(true);
+        let frames = 0;
+        while (animator.isAnimating() && frames < 100) {
+          animator.advance(1000 / 60);
+          // Measure the frame just committed by the editor. Waiting for the
+          // label's separate rAF first would hide a one-frame lag.
+          inspectFrame();
+          frames++;
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+        }
+        expect(animator.isAnimating()).toBe(false);
+        expect(frames).toBeGreaterThan(2);
+      }
+
+      it("keeps the label still in every fractional scroll frame across tile boundaries", async () => {
+        const originalPixelRatio = window.devicePixelRatio;
+        try {
+          window.devicePixelRatio = 1.25;
+          expect(window.devicePixelRatio).toBe(1.25);
+          const component = await showSmoothGutter();
+          const block = blameElements()[0];
+          const label = block.querySelector(".git-blame-label");
+          const initialTop = label.getBoundingClientRect().top;
+          const initialTile = component.mountedTileStartRow;
+          const lineHeight = editor.getLineHeightInPixels();
+          const before = repository.getBlame.calls.count();
+          let maxMovement = 0;
+          let crossedTileBoundary = false;
+          let fractionalFrames = 0;
+          const inspectFrame = () => {
+            maxMovement = Math.max(
+              maxMovement,
+              Math.abs(label.getBoundingClientRect().top - initialTop),
+            );
+            crossedTileBoundary ||= component.mountedTileStartRow !== initialTile;
+            if (!Number.isInteger(editorElement.getScrollTop())) fractionalFrames++;
+          };
+
+          await scrollFrames(component, 120 * lineHeight + 0.37, inspectFrame);
+          const updateSync = spyOn(component, "updateSync").and.callThrough();
+          // The block starts far above the mounted tiles. Its sticky label
+          // must not force the editor to render that off-screen row again.
+          await scrollFrames(component, 120.5 * lineHeight + 0.63, inspectFrame);
+          expect(updateSync).not.toHaveBeenCalled();
+          await scrollFrames(component, 2 * lineHeight + 0.63, inspectFrame);
+
+          expect(crossedTileBoundary).toBe(true);
+          expect(fractionalFrames).toBeGreaterThan(2);
+          expect(maxMovement)
+            .withContext("maximum label movement within a sticky block")
+            .toBeLessThan(0.05);
+          expect(blameElements().length).toBe(1);
+          expect(repository.getBlame.calls.count()).toBe(before);
+        } finally {
+          window.devicePixelRatio = originalPixelRatio;
+        }
+      });
+
+      it("clamps to the block bottom in the same frame while scrolling both ways", async () => {
+        const originalPixelRatio = window.devicePixelRatio;
+        try {
+          window.devicePixelRatio = 1.5;
+          expect(window.devicePixelRatio).toBe(1.5);
+          const component = await showSmoothGutter(12);
+          const block = blameElements()[0];
+          const label = block.querySelector(".git-blame-label");
+          const initialTop = label.getBoundingClientRect().top;
+          const lineHeight = editor.getLineHeightInPixels();
+          let maxMovement = 0;
+          let clampedFrames = 0;
+          let stickyFrames = 0;
+          const inspectFrame = () => {
+            const blockBounds = block.getBoundingClientRect();
+            const labelBounds = label.getBoundingClientRect();
+            const expectedTop = Math.max(
+              blockBounds.top,
+              Math.min(initialTop, blockBounds.bottom - labelBounds.height),
+            );
+            maxMovement = Math.max(maxMovement, Math.abs(labelBounds.top - expectedTop));
+            if (expectedTop < initialTop) clampedFrames++;
+            else stickyFrames++;
+          };
+
+          await scrollFrames(component, 11.5 * lineHeight + 0.37, inspectFrame);
+          await scrollFrames(component, 2 * lineHeight + 0.63, inspectFrame);
+
+          expect(clampedFrames).toBeGreaterThan(2);
+          expect(stickyFrames).toBeGreaterThan(2);
+          expect(maxMovement)
+            .withContext("maximum frame error at the block's sticky bottom")
+            .toBeLessThan(0.05);
+        } finally {
+          window.devicePixelRatio = originalPixelRatio;
+        }
+      });
+    });
+
     it("reflows one block after folding and unfolding its own rows", async () => {
       await main.gutterForEditor(editor).toggle();
       await settleDisplay();
