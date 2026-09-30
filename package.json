@@ -101,7 +101,7 @@
     },
     "showHash": {
       "title": "Show Commit Hash",
-      "description": "Show the abbreviated commit hash beside each line.",
+      "description": "Show the abbreviated commit hash in each block's label.",
       "type": "boolean",
       "default": true
     },

@@ -46,6 +46,17 @@ describe("git-blame", () => {
     return Array.from(editorElement.querySelectorAll(".git-blame-line"));
   }
 
+  function blameDecorations() {
+    return editor.getDecorations({ type: "gutter", gutterName: GUTTER_NAME });
+  }
+
+  async function settleDisplay() {
+    await flushMicrotasks();
+    editorElement.getComponent().updateSync();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    editorElement.getComponent().updateSync();
+  }
+
   beforeEach(async () => {
     workspaceElement = lumine.views.getView(lumine.workspace);
     jasmine.attachToDOM(workspaceElement);
@@ -83,12 +94,14 @@ describe("git-blame", () => {
   });
 
   describe("showing the gutter", () => {
-    it("adds a visible gutter with one decoration per blamed line", async () => {
+    it("adds a visible gutter with one label per consecutive commit block", async () => {
       await main.gutterForEditor(editor).toggle();
 
       expect(gutter()).toBeTruthy();
       expect(gutter().isVisible()).toBe(true);
-      expect(blameElements().length).toBe(4);
+      expect(blameElements().length).toBe(3);
+      expect(blameElements()[0].querySelectorAll(".git-blame-label").length).toBe(1);
+      expect(blameElements()[0].querySelectorAll(".git-blame-author").length).toBe(1);
     });
 
     it("reads blame through the repository rather than spawning git", async () => {
@@ -104,25 +117,107 @@ describe("git-blame", () => {
       expect(repository.ensureRefsSnapshot).toHaveBeenCalled();
     });
 
-    it("bands consecutive lines from the same commit together", async () => {
+    it("alternates the shade between consecutive commit blocks", async () => {
       await main.gutterForEditor(editor).toggle();
 
       const shades = blameElements().map((element) =>
         element.classList.contains("git-blame-odd") ? "odd" : "even",
       );
-      expect(shades[0]).toBe(shades[1]);
-      expect(shades[1]).not.toBe(shades[2]);
+      expect(shades[0]).not.toBe(shades[1]);
+      expect(shades[0]).toBe(shades[2]);
+    });
+
+    it("covers exactly the block's buffer rows", async () => {
+      await main.gutterForEditor(editor).toggle();
+
+      const ranges = blameDecorations().map((decoration) =>
+        decoration.getMarker().getBufferRange().serialize(),
+      );
+      expect(ranges).toEqual([
+        [
+          [0, 0],
+          [1, 3],
+        ],
+        [
+          [2, 0],
+          [2, 5],
+        ],
+        [
+          [3, 0],
+          [3, 4],
+        ],
+      ]);
+    });
+
+    it("starts a separate block when the same commit returns later", async () => {
+      repository.getBlame.and.resolveTo({
+        revision: null,
+        lines: [...BLAME, blameLine(5, SHA_ONE, "Ada Lovelace")],
+      });
+      await main.gutterForEditor(editor).toggle();
+
+      expect(blameElements().map((element) => element.dataset.sha)).toEqual([
+        SHA_ONE,
+        SHA_TWO,
+        UNCOMMITTED,
+        SHA_ONE,
+      ]);
+      expect(blameDecorations()[3].getMarker().getBufferRange().serialize()).toEqual([
+        [4, 0],
+        [4, 0],
+      ]);
+    });
+
+    it("does not join matching commits across a missing blame row", async () => {
+      repository.getBlame.and.resolveTo({
+        revision: null,
+        lines: [blameLine(1, SHA_ONE, "Ada"), blameLine(3, SHA_ONE, "Ada")],
+      });
+      await main.gutterForEditor(editor).toggle();
+
+      expect(blameElements().length).toBe(2);
+      expect(
+        blameDecorations().map((decoration) => decoration.getMarker().getBufferRange().serialize()),
+      ).toEqual([
+        [
+          [0, 0],
+          [0, 3],
+        ],
+        [
+          [2, 0],
+          [2, 5],
+        ],
+      ]);
+    });
+
+    it("groups consecutive uncommitted rows under one label", async () => {
+      repository.getBlame.and.resolveTo({
+        revision: null,
+        lines: [
+          ...BLAME.slice(0, 2),
+          blameLine(3, UNCOMMITTED, "Not Committed Yet"),
+          blameLine(4, UNCOMMITTED, "Not Committed Yet"),
+        ],
+      });
+      await main.gutterForEditor(editor).toggle();
+
+      expect(blameElements().length).toBe(2);
+      expect(editorElement.querySelectorAll(".git-blame-pending").length).toBe(1);
+      expect(blameDecorations()[1].getMarker().getBufferRange().serialize()).toEqual([
+        [2, 0],
+        [3, 4],
+      ]);
     });
 
     it("marks a line that is not committed yet", async () => {
       await main.gutterForEditor(editor).toggle();
 
-      const last = blameElements()[3];
+      const last = blameElements()[2];
       expect(last.classList).toContain("git-blame-uncommitted");
       expect(last.textContent).toContain("Not committed yet");
     });
 
-    it("links each line to its commit on the host", async () => {
+    it("links each block to its commit on the host", async () => {
       await main.gutterForEditor(editor).toggle();
 
       expect(blameElements()[0].dataset.url).toBe(
@@ -152,7 +247,7 @@ describe("git-blame", () => {
       });
 
       await main.gutterForEditor(editor).toggle();
-      expect(blameElements().length).toBe(4);
+      expect(blameElements().length).toBe(3);
     });
   });
 
@@ -160,11 +255,34 @@ describe("git-blame", () => {
     it("removes every decoration and hides the gutter", async () => {
       const blame = main.gutterForEditor(editor);
       await blame.toggle();
-      expect(blameElements().length).toBe(4);
+      expect(blameElements().length).toBe(3);
 
       await blame.toggle();
       expect(blame.isVisible()).toBe(false);
       expect(gutter().isVisible()).toBe(false);
+      expect(blameElements().length).toBe(0);
+    });
+
+    it("cancels the initial blame read before the gutter becomes visible", async () => {
+      let complete;
+      repository.getBlame.and.returnValue(
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+      );
+      const blame = main.gutterForEditor(editor);
+      const showing = blame.setVisible(true);
+      await flushMicrotasks();
+      expect(blame.isVisible()).toBe(false);
+
+      await blame.setVisible(false);
+      complete({ revision: null, lines: BLAME });
+
+      expect(await showing).toBe(false);
+      await settleDisplay();
+      expect(blame.isVisible()).toBe(false);
+      expect(gutter()?.isVisible()).not.toBe(true);
+      expect(blameDecorations().length).toBe(0);
       expect(blameElements().length).toBe(0);
     });
   });
@@ -251,8 +369,8 @@ describe("git-blame", () => {
     });
   });
 
-  describe("clicking a line", () => {
-    it("opens the commit on the host", async () => {
+  describe("interacting with a block", () => {
+    it("opens the commit when the empty part of its block is clicked", async () => {
       spyOn(lumine.shell, "openExternal").and.resolveTo();
       await main.gutterForEditor(editor).toggle();
 
@@ -287,12 +405,211 @@ describe("git-blame", () => {
       expect(lumine.clipboard.read()).toBe(SHA_ONE);
     });
 
-    it("does nothing on an uncommitted line", async () => {
+    it("does nothing on an uncommitted block", async () => {
       spyOn(lumine.shell, "openExternal");
       await main.gutterForEditor(editor).toggle();
 
-      blameElements()[3].click();
+      blameElements()[2].click();
       expect(lumine.shell.openExternal).not.toHaveBeenCalled();
+    });
+
+    it("anchors one tooltip to the visible label when any part of its block is hovered", async () => {
+      const tooltip = jasmine.createSpyObj("tooltip", ["dispose"]);
+      spyOn(lumine.tooltips, "add").and.returnValue(tooltip);
+      await main.gutterForEditor(editor).toggle();
+      const block = blameElements()[0];
+      const label = block.querySelector(".git-blame-label");
+      const enter = jasmine.createSpy("label mouseenter");
+      const leave = jasmine.createSpy("label mouseleave");
+      label.addEventListener("mouseenter", enter);
+      label.addEventListener("mouseleave", leave);
+      block.dispatchEvent(
+        new MouseEvent("mouseover", { bubbles: true, relatedTarget: editorElement }),
+      );
+      block
+        .querySelector(".git-blame-author")
+        .dispatchEvent(new MouseEvent("mouseover", { bubbles: true, relatedTarget: block }));
+      block.dispatchEvent(new MouseEvent("mouseout", { bubbles: true, relatedTarget: label }));
+
+      expect(enter).toHaveBeenCalledTimes(1);
+      expect(leave).not.toHaveBeenCalled();
+      block.dispatchEvent(
+        new MouseEvent("mouseout", { bubbles: true, relatedTarget: editorElement }),
+      );
+      expect(leave).toHaveBeenCalledTimes(1);
+      block.dispatchEvent(
+        new MouseEvent("mouseover", { bubbles: true, relatedTarget: editorElement }),
+      );
+      expect(enter).toHaveBeenCalledTimes(2);
+
+      expect(lumine.tooltips.add).toHaveBeenCalledOnceWith(label, {
+        title: BLAME[0].summary,
+        placement: "right",
+        html: false,
+      });
+
+      await main.gutterForEditor(editor).setVisible(false);
+      expect(tooltip.dispose).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("display layout", () => {
+    it("includes the wrapped continuation of the block's last line", async () => {
+      editor.setText(`one\n${"wrapped content ".repeat(12)}\nthree\nfour\n`);
+      editor.update({
+        softWrapped: true,
+        softWrapAtPreferredLineLength: true,
+        preferredLineLength: 20,
+      });
+      await main.gutterForEditor(editor).toggle();
+      await settleDisplay();
+
+      const endScreenRow = editor.screenPositionForBufferPosition([
+        1,
+        editor.lineTextForBufferRow(1).length,
+      ]).row;
+      expect(endScreenRow).toBeGreaterThan(1);
+      expect(blameDecorations()[0].getMarker().getEndScreenPosition().row).toBe(endScreenRow);
+      expect(blameElements()[0].getBoundingClientRect().height).toBeNear(
+        (endScreenRow + 1) * editor.getLineHeightInPixels(),
+      );
+      expect(blameElements()[0].querySelectorAll(".git-blame-label").length).toBe(1);
+    });
+
+    it("keeps the label visible while scrolling inside a long block", async () => {
+      const tooltip = jasmine.createSpyObj("tooltip", ["dispose"]);
+      spyOn(lumine.tooltips, "add").and.returnValue(tooltip);
+      editor.setText(Array.from({ length: 80 }, (_, row) => `line ${row}`).join("\n"));
+      repository.getBlame.and.resolveTo({
+        revision: null,
+        lines: Array.from({ length: 80 }, (_, row) => blameLine(row + 1, SHA_ONE, "Ada")),
+      });
+      editorElement.setHeight(160);
+      await main.gutterForEditor(editor).toggle();
+      await settleDisplay();
+      const before = repository.getBlame.calls.count();
+      const block = blameElements()[0];
+      const label = block.querySelector(".git-blame-label");
+      const initialTop = label.getBoundingClientRect().top;
+
+      editorElement.setScrollTop(20 * editor.getLineHeightInPixels() + 3);
+      await settleDisplay();
+
+      expect(editorElement.getScrollTop()).toBeGreaterThan(0);
+      expect(label.getBoundingClientRect().top).toBeNear(initialTop);
+      expect(block.getBoundingClientRect().top).toBeLessThan(initialTop);
+      expect(blameElements().length).toBe(1);
+      expect(repository.getBlame.calls.count()).toBe(before);
+      block.dispatchEvent(
+        new MouseEvent("mouseover", { bubbles: true, relatedTarget: editorElement }),
+      );
+      expect(lumine.tooltips.add.calls.mostRecent().args[0]).toBe(label);
+      expect(lumine.tooltips.add.calls.mostRecent().args[0].getBoundingClientRect().top).toBeNear(
+        initialTop,
+      );
+
+      editorElement.setScrollTop(0);
+      await settleDisplay();
+      expect(label.getBoundingClientRect().top).toBeNear(initialTop);
+      expect(label.getBoundingClientRect().top).toBeNear(block.getBoundingClientRect().top);
+    });
+
+    it("does not move a label past the bottom of its block", async () => {
+      editor.setText(Array.from({ length: 80 }, (_, row) => `line ${row}`).join("\n"));
+      repository.getBlame.and.resolveTo({
+        revision: null,
+        lines: Array.from({ length: 80 }, (_, row) =>
+          blameLine(row + 1, row < 10 ? SHA_ONE : SHA_TWO, "Ada"),
+        ),
+      });
+      editorElement.setHeight(160);
+      await main.gutterForEditor(editor).toggle();
+      await settleDisplay();
+      const block = blameElements()[0];
+      const label = block.querySelector(".git-blame-label");
+
+      editorElement.setScrollTop(9 * editor.getLineHeightInPixels() + 3);
+      await settleDisplay();
+
+      expect(label.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+        block.getBoundingClientRect().bottom + 1,
+      );
+    });
+
+    it("reflows one block after folding and unfolding its own rows", async () => {
+      await main.gutterForEditor(editor).toggle();
+      await settleDisplay();
+      const block = blameElements()[0];
+      const before = repository.getBlame.calls.count();
+      expect(block.getBoundingClientRect().height).toBeNear(2 * editor.getLineHeightInPixels());
+
+      editor.foldBufferRowRange(0, 1);
+      await settleDisplay();
+      expect(block.getBoundingClientRect().height).toBeNear(editor.getLineHeightInPixels());
+      expect(block.querySelectorAll(".git-blame-label").length).toBe(1);
+
+      editor.unfoldBufferRow(0);
+      await settleDisplay();
+      expect(block.getBoundingClientRect().height).toBeNear(2 * editor.getLineHeightInPixels());
+      expect(repository.getBlame.calls.count()).toBe(before);
+    });
+
+    it("does not stack hidden commit blocks on a folded header", async () => {
+      await main.gutterForEditor(editor).toggle();
+      editor.foldBufferRowRange(0, 3);
+      await settleDisplay();
+
+      const displayed = blameElements().filter(
+        (element) =>
+          element.getBoundingClientRect().height > 0 &&
+          getComputedStyle(element).visibility !== "hidden",
+      );
+      expect(displayed.length).toBe(1);
+      expect(displayed[0].dataset.sha).toBe(SHA_ONE);
+
+      editor.unfoldBufferRow(0);
+      await settleDisplay();
+      expect(
+        blameElements().filter(
+          (element) =>
+            element.getBoundingClientRect().height > 0 &&
+            getComputedStyle(element).visibility !== "hidden",
+        ).length,
+      ).toBe(3);
+    });
+
+    it("places a block that starts inside a fold below the visible header", async () => {
+      editor.setText("one\ntwo\nthree\nfour\nfive\nsix\n");
+      repository.getBlame.and.resolveTo({
+        revision: null,
+        lines: [
+          blameLine(1, SHA_ONE, "Ada"),
+          ...[2, 3, 4, 5].map((row) => blameLine(row, SHA_TWO, "Grace")),
+          blameLine(6, SHA_ONE, "Ada"),
+        ],
+      });
+      await main.gutterForEditor(editor).toggle();
+      await settleDisplay();
+
+      editor.foldBufferRowRange(0, 2);
+      await settleDisplay();
+      const [header, continuation] = blameElements();
+      const label = continuation.querySelector(".git-blame-label");
+      const lineHeight = editor.getLineHeightInPixels();
+
+      expect(getComputedStyle(continuation).visibility).toBe("visible");
+      expect(continuation.style.clipPath).toBe(`inset(${lineHeight}px 0px 0px)`);
+      expect(label.getBoundingClientRect().top).toBeNear(
+        header.getBoundingClientRect().top + lineHeight,
+      );
+      expect(label.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+        continuation.getBoundingClientRect().bottom + 1,
+      );
+
+      editor.unfoldBufferRow(0);
+      await settleDisplay();
+      expect(continuation.style.clipPath).toBe("");
+      expect(label.getBoundingClientRect().top).toBeNear(continuation.getBoundingClientRect().top);
     });
   });
 
@@ -327,9 +644,52 @@ describe("git-blame", () => {
   });
 
   describe("teardown", () => {
+    it("does not recreate the gutter when a destroyed controller's blame read finishes", async () => {
+      let complete;
+      repository.getBlame.and.returnValue(
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+      );
+      const blame = main.gutterForEditor(editor);
+      const showing = blame.setVisible(true);
+      await flushMicrotasks();
+
+      blame.destroy();
+      complete({ revision: null, lines: BLAME });
+
+      expect(await showing).toBe(false);
+      await settleDisplay();
+      expect(editor.gutterWithName(GUTTER_NAME)).toBeFalsy();
+      expect(blameDecorations().length).toBe(0);
+      expect(blameElements().length).toBe(0);
+    });
+
+    it("ignores an unfinished refresh when the package deactivates", async () => {
+      const blame = main.gutterForEditor(editor);
+      await blame.setVisible(true);
+      let complete;
+      repository.getBlame.and.returnValue(
+        new Promise((resolve) => {
+          complete = resolve;
+        }),
+      );
+      const rendering = blame.render();
+      await flushMicrotasks();
+
+      await lumine.packages.deactivatePackage("git-blame");
+      complete({ revision: null, lines: BLAME });
+
+      expect(await rendering).toBe(false);
+      await settleDisplay();
+      expect(editor.gutterWithName(GUTTER_NAME)).toBeFalsy();
+      expect(blameDecorations().length).toBe(0);
+      expect(blameElements().length).toBe(0);
+    });
+
     it("removes the gutter and its decorations when the package deactivates", async () => {
       await main.gutterForEditor(editor).toggle();
-      expect(blameElements().length).toBe(4);
+      expect(blameElements().length).toBe(3);
 
       await lumine.packages.deactivatePackage("git-blame");
 

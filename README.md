@@ -2,12 +2,12 @@
 
 Show the commit that last changed each line in a gutter.
 
-Every line gets the commit's hash, date and author beside it, with consecutive lines from the same commit banded together. Clicking a line opens that commit on the repository's hosting service, or copies its hash when there is nowhere to open it.
+Consecutive lines from the same commit form one block, with its hash, date and author shown once. The label stays visible as you scroll through a long block. Clicking anywhere in the block opens that commit on the repository's hosting service, or copies its hash when there is nowhere to open it.
 
 ## Features
 
-- **Per-line attribution**: the hash, date and author of the commit each line came from.
-- **Commit banding**: consecutive lines from one commit share a background, so a commit reads as a block.
+- **Commit attribution**: the hash, date and author shown once for each consecutive block of lines from one commit.
+- **Commit banding**: blocks share a background and keep their label visible while scrolling, including wrapped lines.
 - **Commit links**: GitHub, GitLab and Bitbucket are recognised, and any other host can be described with a template.
 - **Author colours**: an optional stripe coloured from the author's name, stable across files and sessions.
 - **Resizable**: drag the gutter's right edge to set its width.
