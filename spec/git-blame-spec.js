@@ -1,4 +1,5 @@
 const path = require("path");
+const { Emitter } = require("lumine");
 const { GUTTER_NAME } = require("../lib/blame-gutter");
 
 describe("git-blame", () => {
@@ -30,11 +31,19 @@ describe("git-blame", () => {
     origin = "git@github.com:owner/repo.git",
     config = null,
   } = {}) {
+    const emitter = new Emitter();
+    let headOid = SHA_ONE;
     return {
       ensureRefsSnapshot: jasmine.createSpy("ensureRefsSnapshot").and.resolveTo(undefined),
       getBlame: jasmine.createSpy("getBlame").and.resolveTo({ revision: null, lines }),
       getConfigValueAsync: jasmine.createSpy("getConfigValueAsync").and.resolveTo(config),
       getOriginURL: () => origin,
+      getStatusSnapshot: () => ({ head: { oid: headOid } }),
+      onDidChangeStatusSnapshot: (callback) => emitter.on("did-change-status", callback),
+      changeHead: (oid) => {
+        headOid = oid;
+        emitter.emit("did-change-status");
+      },
     };
   }
 
@@ -335,6 +344,132 @@ describe("git-blame", () => {
   });
 
   describe("refreshing", () => {
+    it("keeps the latest initial show's repository observer after an older show is cancelled", async () => {
+      const blame = main.gutterForEditor(editor);
+      let finishOlder;
+      let calls = 0;
+      const render = blame.render.bind(blame);
+      spyOn(blame, "render").and.callFake(() => {
+        if (++calls === 1) return new Promise((resolve) => (finishOlder = resolve));
+        return render();
+      });
+      const draw = blame.draw.bind(blame);
+      spyOn(blame, "draw").and.callFake((...args) => {
+        draw(...args);
+        // Resume the older show after the new render has drawn, before the
+        // newer setVisible continuation has marked the gutter as visible.
+        finishOlder(false);
+      });
+
+      const older = blame.setVisible(true);
+      const newer = blame.setVisible(true);
+
+      expect(await older).toBe(false);
+      expect(await newer).toBe(true);
+      expect(blame.repository).toBe(repository);
+      expect(blame.repositorySubscription).toBeTruthy();
+    });
+
+    it("cancels the refs request when an initial show is hidden", async () => {
+      const blame = main.gutterForEditor(editor);
+      repository.ensureRefsSnapshot.and.callFake(
+        ({ signal }) =>
+          new Promise((resolve, reject) =>
+            signal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true }),
+          ),
+      );
+      spyOn(lumine.notifications, "addWarning");
+
+      const showing = blame.setVisible(true);
+      const signal = repository.ensureRefsSnapshot.calls.mostRecent().args[0].signal;
+      await blame.setVisible(false);
+
+      expect(await showing).toBe(false);
+      expect(signal.aborted).toBe(true);
+      expect(lumine.notifications.addWarning).not.toHaveBeenCalled();
+    });
+
+    it("cancels the commit URL config request when a pending show is hidden", async () => {
+      const blame = main.gutterForEditor(editor);
+      repository.getConfigValueAsync.and.callFake(
+        (key, { signal }) =>
+          new Promise((resolve, reject) =>
+            signal.addEventListener("abort", () => reject(new Error("cancelled")), { once: true }),
+          ),
+      );
+      spyOn(lumine.notifications, "addWarning");
+
+      const showing = blame.setVisible(true);
+      await flushMicrotasks();
+      const signal = repository.getConfigValueAsync.calls.mostRecent().args[1].signal;
+      expect(repository.getBlame.calls.mostRecent().args[1].signal).toBe(signal);
+      await blame.setVisible(false);
+
+      expect(await showing).toBe(false);
+      expect(signal.aborted).toBe(true);
+      expect(lumine.notifications.addWarning).not.toHaveBeenCalled();
+    });
+
+    it("retries an initial blame when HEAD changes before it finishes", async () => {
+      const blame = main.gutterForEditor(editor);
+      let finish;
+      repository.getBlame.and.callFake(() => new Promise((resolve) => (finish = resolve)));
+      const showing = blame.setVisible(true);
+      await flushMicrotasks();
+      repository.changeHead(SHA_TWO);
+      repository.getBlame.and.resolveTo({ revision: null, lines: BLAME });
+      finish({ revision: null, lines: BLAME });
+
+      expect(await showing).toBe(true);
+      expect(repository.getBlame.calls.mostRecent().args[1].signal.aborted).toBe(false);
+      expect(blame.isVisible()).toBe(true);
+    });
+
+    it("refreshes after HEAD changes while skipping index-only status events", async () => {
+      await main.gutterForEditor(editor).toggle();
+      repository.getBlame.calls.reset();
+
+      repository.changeHead(SHA_ONE);
+      await flushMicrotasks();
+      expect(repository.getBlame).not.toHaveBeenCalled();
+
+      repository.changeHead(SHA_TWO);
+      await flushMicrotasks();
+      expect(repository.getBlame).toHaveBeenCalledTimes(1);
+    });
+
+    it("re-reads blame for the editor's new path", async () => {
+      await main.gutterForEditor(editor).toggle();
+      repository.getBlame.calls.reset();
+      const newPath = path.join("repo", "renamed.js");
+      editor.getPath.and.returnValue(newPath);
+      editor.emitter.emit("did-change-path", newPath);
+      await flushMicrotasks();
+
+      expect(repository.getBlame.calls.mostRecent().args[0]).toBe(newPath);
+    });
+
+    it("cancels hidden blame requests and suppresses their late errors", async () => {
+      const blame = main.gutterForEditor(editor);
+      await blame.toggle();
+      let rejectBlame;
+      repository.getBlame.and.callFake(
+        () => new Promise((resolve, reject) => (rejectBlame = reject)),
+      );
+      spyOn(lumine.notifications, "addWarning");
+      const rendering = blame.render();
+      await flushMicrotasks();
+      const signal = repository.getBlame.calls.mostRecent().args[1].signal;
+
+      await blame.setVisible(false);
+      rejectBlame(new Error("late blame failure"));
+
+      expect(await rendering).toBe(false);
+      expect(signal.aborted).toBe(true);
+      expect(lumine.notifications.addWarning).not.toHaveBeenCalled();
+      expect(blameDecorations().length).toBe(0);
+    });
+
     it("re-reads blame when the file is saved", async () => {
       await main.gutterForEditor(editor).toggle();
       const before = repository.getBlame.calls.count();
