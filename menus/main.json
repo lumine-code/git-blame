@@ -9,14 +9,5 @@
         }
       ]
     }
-  ],
-  "context-menu": {
-    // Fenced at both ends: a context menu normalizes its separators, and
-    // fencing keeps this block grouped whatever else contributes around it.
-    "lumine-text-editor:not([mini])": [
-      { "type": "separator" },
-      { "label": "Toggle Git Blame", "command": "git-blame:toggle" },
-      { "type": "separator" }
-    ]
-  }
+  ]
 }
