@@ -42,7 +42,7 @@ lumine-text-editor .gutter[gutter-name="git-blame"] {
 
   .git-blame-label {
     display: flex;
-    gap: var(--component-padding, 10px);
+    gap: var(--ui-spacing, 10px);
     padding: 0 4px;
     height: 1lh;
     /* The block forwards hover events, including over its empty area. */
