@@ -1,5 +1,5 @@
 const path = require("path");
-const { Emitter } = require("lumine");
+const { Disposable, Emitter } = require("lumine");
 const { GUTTER_NAME } = require("../lib/blame-gutter");
 
 describe("git-blame", () => {
@@ -33,6 +33,7 @@ describe("git-blame", () => {
   } = {}) {
     const emitter = new Emitter();
     let headOid = SHA_ONE;
+    let destroyed = false;
     return {
       ensureRefsSnapshot: jasmine.createSpy("ensureRefsSnapshot").and.resolveTo(undefined),
       getBlame: jasmine.createSpy("getBlame").and.resolveTo({ revision: null, lines }),
@@ -40,6 +41,12 @@ describe("git-blame", () => {
       getOriginURL: () => origin,
       getStatusSnapshot: () => ({ head: { oid: headOid } }),
       onDidChangeStatusSnapshot: (callback) => emitter.on("did-change-status", callback),
+      onDidDestroy: (callback) => emitter.on("did-destroy", callback),
+      isDestroyed: () => destroyed,
+      destroy() {
+        destroyed = true;
+        emitter.emit("did-destroy");
+      },
       changeHead: (oid) => {
         headOid = oid;
         emitter.emit("did-change-status");
@@ -78,7 +85,11 @@ describe("git-blame", () => {
     // registry and the stubbed blame call.
     spyOn(editor, "getPath").and.returnValue(path.join("repo", "file.js"));
     repository = fakeRepository();
+    spyOn(lumine.repositories, "retain").and.callFake(() => new Disposable());
     spyOn(lumine.repositories, "getForPath").and.returnValue(repository);
+    spyOn(lumine.repositories, "resolveForPath").and.callFake(async () =>
+      lumine.repositories.getForPath(editor.getPath()),
+    );
 
     // The package is lazily activated by its command, so `activatePackage`
     // alone never resolves; the dispatch below is what triggers it, and it is
@@ -344,6 +355,19 @@ describe("git-blame", () => {
   });
 
   describe("refreshing", () => {
+    it("rebinds visible blame when the owning repository is replaced", async () => {
+      const blame = main.gutterForEditor(editor);
+      await blame.setVisible(true);
+      const replacement = fakeRepository();
+      lumine.repositories.getForPath.and.returnValue(replacement);
+      repository.destroy();
+      await conditionPromise(
+        () => blame.repository === replacement && replacement.getBlame.calls.count() > 0,
+      );
+      await settleDisplay();
+      expect(blame.isVisible()).toBe(true);
+      expect(blameElements().length).toBe(3);
+    });
     it("keeps the latest initial show's repository observer after an older show is cancelled", async () => {
       const blame = main.gutterForEditor(editor);
       let finishOlder;
@@ -381,6 +405,7 @@ describe("git-blame", () => {
       spyOn(lumine.notifications, "addWarning");
 
       const showing = blame.setVisible(true);
+      await flushMicrotasks();
       const signal = repository.ensureRefsSnapshot.calls.mostRecent().args[0].signal;
       await blame.setVisible(false);
 
