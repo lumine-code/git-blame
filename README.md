@@ -2,6 +2,8 @@
 
 Show the commit that last changed each line in a gutter.
 
+Fork of [alexcorre/git-blame](https://github.com/alexcorre/git-blame).
+
 Consecutive lines from the same commit form one block, with its hash, date and author shown once. The label stays visible as you scroll through a long block. Clicking anywhere in the block opens that commit on the repository's hosting service, or copies its hash when there is nowhere to open it.
 
 ## Features
