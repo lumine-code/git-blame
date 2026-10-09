@@ -13,7 +13,7 @@ Consecutive lines from the same commit form one block, with its hash, date and a
 - **Commit links**: GitHub, GitLab and Bitbucket are recognised, and any other host can be described with a template.
 - **Author colours**: an optional stripe coloured from the author's name, stable across files and sessions.
 - **Resizable**: drag the gutter's right edge to set its width.
-- **Refreshes on save**: blame is re-read when the file is saved, so it does not go stale behind you.
+- **Refreshes on save**: blame is re-read when the file is saved or reloaded from disk, so it does not go stale behind you.
 - **Off the renderer thread**: blame is read through the editor's Git worker, so a large file does not block typing.
 
 ## Installation

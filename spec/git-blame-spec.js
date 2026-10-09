@@ -39,6 +39,7 @@ describe("git-blame", () => {
       getBlame: jasmine.createSpy("getBlame").and.resolveTo({ revision: null, lines }),
       getConfigValueAsync: jasmine.createSpy("getConfigValueAsync").and.resolveTo(config),
       getOriginURL: () => origin,
+      getWorkingDirectory: () => path.resolve("repo"),
       getStatusSnapshot: () => ({ head: { oid: headOid } }),
       onDidChangeStatusSnapshot: (callback) => emitter.on("did-change-status", callback),
       onDidDestroy: (callback) => emitter.on("did-destroy", callback),
