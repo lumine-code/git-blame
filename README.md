@@ -16,6 +16,8 @@ Consecutive lines from the same commit form one block, with its hash, date and a
 - **Refreshes on save**: blame is re-read when the file is saved or reloaded from disk, so it does not go stale behind you.
 - **Off the renderer thread**: blame is read through the editor's Git worker, so a large file does not block typing.
 
+![Read actual commit attribution next to the source lines.](.github/demo.png)
+
 ## Installation
 
 To install `git-blame` search for it in the Install pane of the Lumine settings, or run the command `lumine --install lumine-code/git-blame`.

@@ -1,0 +1,17 @@
+{
+  "title": "git-blame",
+  "description": "Read actual commit attribution next to the source lines.",
+  "recordedOn": "2026-10-13",
+  "sourceRevision": "d75cef2a09d7316962d4ce675283f9454aa7cf75",
+  "mode": "normal",
+  "fontSettings": "default",
+  "themeSourceRevision": "6564a9e21899b5541e9c8f8006f9be6d6d72e6ad",
+  "images": [
+    {
+      "file": "demo.png",
+      "label": "Read actual commit attribution next to the source lines.",
+      "width": 1200,
+      "height": 600
+    }
+  ]
+}
