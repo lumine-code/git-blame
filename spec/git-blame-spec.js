@@ -348,6 +348,7 @@ describe("git-blame", () => {
 
     it("says nothing at all when there is no editor to blame", () => {
       spyOn(lumine.notifications, "addWarning");
+      spyOn(lumine.workspace, "getActiveEmbeddedTextEditor").and.returnValue(null);
       spyOn(lumine.workspace, "getActiveTextEditor").and.returnValue(null);
 
       expect(main.toggle({})).toBeUndefined();
@@ -718,7 +719,7 @@ describe("git-blame", () => {
 
       async function scrollFrames(component, top, inspectFrame) {
         const animator = component.scrollAnimator;
-        animator.scrollTo({ top, smoothness: 8 });
+        animator.scrollTo({ top, duration: 240 });
         expect(animator.isAnimating()).toBe(true);
         let frames = 0;
         while (animator.isAnimating() && frames < 100) {
