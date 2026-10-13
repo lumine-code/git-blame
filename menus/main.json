@@ -8,7 +8,9 @@
           "submenu": [
             {
               "label": "Git Blame",
-              "command": "git-blame:toggle"
+              "command": "git-blame:toggle",
+              "group": "version-control",
+              "order": 10
             }
           ]
         }
