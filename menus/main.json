@@ -1,6 +1,20 @@
 {
   "menu": [
     {
+      "label": "View",
+      "submenu": [
+        {
+          "label": "Editor",
+          "submenu": [
+            {
+              "label": "Git Blame",
+              "command": "git-blame:toggle"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "label": "Packages",
       "submenu": [
         {
