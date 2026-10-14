@@ -1,18 +1,13 @@
 {
   "menu": [
     {
-      "label": "View",
+      "label": "Git",
       "submenu": [
         {
-          "label": "Editor",
-          "submenu": [
-            {
-              "label": "Git Blame",
-              "command": "git-blame:toggle",
-              "group": "version-control",
-              "order": 10
-            }
-          ]
+          "label": "Toggle Blame",
+          "command": "git-blame:toggle",
+          "group": "history",
+          "order": 10
         }
       ]
     },
