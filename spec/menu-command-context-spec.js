@@ -16,11 +16,18 @@ describe("git-blame menu commands in captured presentation contexts", () => {
     second = lumine.workspace.buildTextEditor();
     main = (await lumine.packages.activatePackage(packageRoot)).mainModule;
     captured = jasmine.createSpy("toggle captured blame");
+    spyOn(first, "getPath").and.returnValue("/project/first.js");
+    spyOn(second, "getPath").and.returnValue("/project/second.js");
+    spyOn(lumine.repositories, "getForPath").and.returnValue({
+      getWorkingDirectory: () => "/project",
+      isDestroyed: () => false,
+    });
     spyOn(main, "gutterForEditor").and.callFake((editor) => ({ toggle: () => captured(editor) }));
   });
 
   afterEach(async () => {
     await lumine.packages.deactivatePackage("git-blame");
+    lumine.repositories.getForPath.and.callThrough();
     await lumine.workspace.discardEditorWindows();
     if (notebook) await lumine.workspace.paneForItem(notebook)?.destroyItem(notebook);
     first?.destroy();
