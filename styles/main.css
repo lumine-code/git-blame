@@ -1,4 +1,9 @@
 lumine-text-editor .gutter[gutter-name="git-blame"] {
+  --git-blame-muted-color: color-mix(
+    in srgb,
+    var(--syntax-text-color) 85%,
+    var(--syntax-gutter-background-color)
+  );
   /* Set as a custom property on the editor element when the width changes.
      Upstream appended a <style> element to the document head instead, one per
      gutter, never removed, naming a selector that no longer exists. */
@@ -18,11 +23,15 @@ lumine-text-editor .gutter[gutter-name="git-blame"] {
     cursor: pointer;
 
     &.git-blame-odd {
-      background-color: color-mix(in srgb, var(--base-background-color) 97%, white);
+      background-color: var(--syntax-gutter-background-color);
     }
 
     &.git-blame-even {
-      background-color: color-mix(in srgb, var(--base-background-color) 97%, black);
+      background-color: color-mix(
+        in srgb,
+        var(--syntax-text-color) 3%,
+        var(--syntax-gutter-background-color)
+      );
     }
 
     &.git-blame-coloured {
@@ -32,7 +41,7 @@ lumine-text-editor .gutter[gutter-name="git-blame"] {
     &.git-blame-uncommitted {
       cursor: default;
       font-style: italic;
-      color: var(--text-color-subtle);
+      color: var(--git-blame-muted-color);
     }
 
     &:hover .git-blame-hash {
@@ -50,12 +59,12 @@ lumine-text-editor .gutter[gutter-name="git-blame"] {
   }
 
   .git-blame-hash {
-    color: var(--text-color);
+    color: var(--syntax-text-color);
     font-variant-numeric: tabular-nums;
   }
 
   .git-blame-date {
-    color: var(--text-color-subtle);
+    color: var(--git-blame-muted-color);
     font-variant-numeric: tabular-nums;
   }
 
@@ -66,7 +75,7 @@ lumine-text-editor .gutter[gutter-name="git-blame"] {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: var(--text-color);
+    color: var(--syntax-text-color);
   }
 
   .git-blame-pending {
