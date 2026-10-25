@@ -3,6 +3,11 @@ const os = require("node:os");
 const path = require("node:path");
 
 describe("Git Blame full scan lifecycle regressions", () => {
+  // Processing fixtures use a real grammar; None deliberately disables this package.
+  beforeEach(async () => {
+    await lumine.packages.activatePackage("language-text");
+  });
+
   let directory, temporaryRoot, editor, main, repository, file;
   const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
   beforeEach(async () => {
@@ -53,6 +58,29 @@ describe("Git Blame full scan lifecycle regressions", () => {
     expect(gutter.destroyed).toBe(true);
     expect(main.subscriptions.disposables.has(registration)).toBe(false);
     expect(registration.disposed).toBe(true);
+  });
+
+  it("cannot restore blame results or a gutter after switching to None", async () => {
+    const grammar = editor.getGrammar();
+    const gutter = main.gutterForEditor(editor);
+    let release;
+    spyOn(repository, "getBlame").and.returnValue(
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    spyOn(gutter, "draw").and.callThrough();
+    const pending = gutter.setVisible(true);
+    await conditionPromise(() => repository.getBlame.calls.count() > 0);
+    editor.setGrammar(lumine.grammars.nullGrammar);
+    expect(gutter.renderAbortController).toBeNull();
+    expect(gutter.destroyed).toBe(true);
+    editor.setGrammar(grammar);
+    release({ lines: [] });
+    expect(await pending).toBe(false);
+    expect(gutter.draw).not.toHaveBeenCalled();
+    expect(gutter.markers).toEqual([]);
+    expect(editor.gutterWithName("git-blame")).toBeNull();
   });
   it("refreshes external saved-file reloads after startup settles and keeps hidden gutters inert", async () => {
     const gutter = main.gutterForEditor(editor);

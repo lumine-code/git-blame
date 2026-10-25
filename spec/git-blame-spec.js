@@ -3,6 +3,11 @@ const { Disposable, Emitter } = require("lumine");
 const { GUTTER_NAME } = require("../lib/blame-gutter");
 
 describe("git-blame", () => {
+  // Processing fixtures use a real grammar; None deliberately disables this package.
+  beforeEach(async () => {
+    await lumine.packages.activatePackage("language-text");
+  });
+
   let editor, editorElement, workspaceElement, main, repository;
 
   const SHA_ONE = "1".repeat(40);

@@ -5,7 +5,11 @@ describe("Git Blame command availability", () => {
   beforeEach(() => {
     main = Object.create(mainModule);
     main.gutters = new Map();
-    editor = { getPath: () => "/project/file", isDestroyed: () => false };
+    editor = {
+      getPath: () => "/project/file",
+      getGrammar: () => ({ scopeName: "source.test" }),
+      isDestroyed: () => false,
+    };
     main.editorForEvent = () => editor;
     status = { initialized: true, head: { oid: "commit" } };
     repository = { getStatusSnapshot: () => status, getStatusEntry: () => entry };
