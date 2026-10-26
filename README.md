@@ -34,6 +34,8 @@ The gutter reads blame for the file in the active editor, so the file has to be 
 
 Submodules need no special handling: the editor's repository registry resolves the file to the repository that actually contains it.
 
+Selecting None pauses blame and releases its gutter, observers and pending results. Restoring a grammar resumes a gutter that was visible or opening in that editor; gutters you had hidden stay closed.
+
 ## Configuration
 
 Commit links work out of the box for GitHub, GitLab and Bitbucket. For any other host, set a template using `{host}`, `{project}`, `{repo}` and `{revision}`:

@@ -60,15 +60,17 @@ describe("Git Blame full scan lifecycle regressions", () => {
     expect(registration.disposed).toBe(true);
   });
 
-  it("cannot restore blame results or a gutter after switching to None", async () => {
+  it("resumes a requested gutter before an obsolete None-era request settles", async () => {
     const grammar = editor.getGrammar();
     const gutter = main.gutterForEditor(editor);
     let release;
-    spyOn(repository, "getBlame").and.returnValue(
-      new Promise((resolve) => {
+    const original = repository.getBlame.bind(repository);
+    spyOn(repository, "getBlame").and.callFake((...args) => {
+      if (release) return original(...args);
+      return new Promise((resolve) => {
         release = resolve;
-      }),
-    );
+      });
+    });
     spyOn(gutter, "draw").and.callThrough();
     const pending = gutter.setVisible(true);
     await conditionPromise(() => repository.getBlame.calls.count() > 0);
@@ -76,11 +78,41 @@ describe("Git Blame full scan lifecycle regressions", () => {
     expect(gutter.renderAbortController).toBeNull();
     expect(gutter.destroyed).toBe(true);
     editor.setGrammar(grammar);
+    const resumed = main.gutters.get(editor);
+    expect(resumed).toBeTruthy();
+    expect(resumed).not.toBe(gutter);
+    await conditionPromise(() => resumed.isVisible());
+    expect(resumed.markers.length).toBeGreaterThan(0);
     release({ lines: [] });
     expect(await pending).toBe(false);
     expect(gutter.draw).not.toHaveBeenCalled();
     expect(gutter.markers).toEqual([]);
-    expect(editor.gutterWithName("git-blame")).toBeNull();
+    expect(main.gutters.get(editor)).toBe(resumed);
+    expect(editor.gutterWithName("git-blame").isVisible()).toBe(true);
+  });
+
+  it("restores only visible per-view gutters when a shared buffer regains its grammar", async () => {
+    const grammar = editor.getGrammar();
+    const second = lumine.workspace.buildTextEditor({ buffer: editor.getBuffer() });
+    try {
+      const visible = main.gutterForEditor(editor);
+      const hidden = main.gutterForEditor(second);
+      expect(await visible.setVisible(true)).toBe(true);
+      second.setGrammar(lumine.grammars.nullGrammar);
+      expect(visible.destroyed).toBe(true);
+      expect(hidden.destroyed).toBe(true);
+      expect(main.gutters.size).toBe(0);
+      second.setGrammar(grammar);
+      const resumed = main.gutters.get(editor);
+      await conditionPromise(() => resumed?.isVisible());
+      expect(main.gutters.has(second)).toBe(false);
+      await resumed.setVisible(false);
+      editor.setGrammar(lumine.grammars.nullGrammar);
+      editor.setGrammar(grammar);
+      expect(main.gutters.size).toBe(0);
+    } finally {
+      second.destroy();
+    }
   });
   it("refreshes external saved-file reloads after startup settles and keeps hidden gutters inert", async () => {
     const gutter = main.gutterForEditor(editor);
