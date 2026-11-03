@@ -42,10 +42,10 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.13.0",
+    "eslint": "^10.14.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-n": "^18.5.0",
-    "globals": "^17.13.0",
+    "globals": "^17.14.0",
     "prettier": "^3.9.10"
   },
   "configSchema": {
@@ -123,6 +123,14 @@
       "description": "Link template for hosts other than GitHub, GitLab and Bitbucket, which are recognised already. Use `{host}`, `{project}`, `{repo}` and `{revision}`, for example `https://git.example.com/{project}/{repo}/commit/{revision}`. A repository's own `git-blame.commitUrlTemplate` git config value overrides this.",
       "type": "string",
       "default": ""
+    }
+  },
+  "overrides": {
+    "eslint@^10.14.0": {
+      "minimatch": "11.0.4"
+    },
+    "@eslint/config-array@0.23.5": {
+      "minimatch": "11.0.4"
     }
   }
 }
