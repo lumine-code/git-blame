@@ -625,8 +625,7 @@ describe("git-blame", () => {
       editor.setText(`one\n${"wrapped content ".repeat(12)}\nthree\nfour\n`);
       editor.update({
         softWrapped: true,
-        softWrapAtPreferredLineLength: true,
-        preferredLineLength: 20,
+        softWrapMaxColumn: 20,
       });
       await main.gutterForEditor(editor).toggle();
       await settleDisplay();
