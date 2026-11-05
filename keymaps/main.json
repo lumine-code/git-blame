@@ -1,6 +1,6 @@
 {
   // Part of the `alt-g` family, shared with git-panel (alt-g g), github-panel
-  // (alt-g h), git-diff, git-command, git-center and open-repository. `a` for
+  // (alt-g h), git-chunk, git-command, git-center and open-repository. `a` for
   // annotate: open-repository already holds `alt-g b` for opening blame on the
   // host's website.
   //
