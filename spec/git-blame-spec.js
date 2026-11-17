@@ -335,11 +335,14 @@ describe("git-blame", () => {
 
     it("warns and stays hidden when git fails", async () => {
       spyOn(lumine.notifications, "addWarning");
-      repository.getBlame.and.rejectWith(new Error("no such path"));
+      const error = new Error(String.raw`Cannot read C:\Projects\[demo]\_draft <unknown>`);
+      repository.getBlame.and.rejectWith(error);
 
       const shown = await main.gutterForEditor(editor).toggle();
       expect(shown).toBe(false);
-      expect(lumine.notifications.addWarning).toHaveBeenCalled();
+      expect(lumine.notifications.addWarning).toHaveBeenCalledWith("Unable to show Git blame", {
+        detail: `Path: ${editor.getPath()}\n\n${error.message}`,
+      });
     });
 
     it("warns and stays hidden when the file has no history", async () => {
