@@ -24,7 +24,7 @@ describe("Git Blame gutter measurements across windows", () => {
     gutter.draw(
       [{ line: 1, sha: "a".repeat(40), author: { name: "Ada", date: new Date() } }],
       null,
-      { getOriginURL: () => "https://github.com/example/example.git" },
+      "https://github.com/example/example.git",
     );
     const observer = source.calls.mostRecent().returnValue;
     const disconnect = spyOn(observer, "disconnect").and.callThrough();

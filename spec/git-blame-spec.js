@@ -143,6 +143,20 @@ describe("git-blame", () => {
       expect(repository.ensureRefsSnapshot).toHaveBeenCalled();
     });
 
+    it("reads just the remote URL when the repository supports that operation", async () => {
+      repository.readRemotes = jasmine.createSpy("readRemotes").and.resolveTo([
+        { name: "upstream", fetchUrl: "git@github.com:upstream/repo.git" },
+        { name: "origin", fetchUrl: "git@github.com:effective/repo.git" },
+      ]);
+      repository.ensureRefsSnapshot.calls.reset();
+      await main.gutterForEditor(editor).toggle();
+      expect(repository.readRemotes).toHaveBeenCalledTimes(1);
+      expect(repository.ensureRefsSnapshot).not.toHaveBeenCalled();
+      expect(blameElements()[0].dataset.url).toBe(
+        `https://github.com/effective/repo/commit/${SHA_ONE}`,
+      );
+    });
+
     it("alternates the shade between consecutive commit blocks", async () => {
       await main.gutterForEditor(editor).toggle();
 
@@ -365,6 +379,20 @@ describe("git-blame", () => {
   });
 
   describe("refreshing", () => {
+    it("updates presentation settings without replacing range markers or reading Git", async () => {
+      const blame = main.gutterForEditor(editor);
+      await blame.setVisible(true);
+      const marker = blame.blocks[0].marker;
+      const reads = repository.getBlame.calls.count();
+      lumine.config.set("git-blame.showHash", false);
+      lumine.config.set("git-blame.commitUrlTemplate", "https://example.test/{revision}");
+      await settleDisplay();
+      expect(blame.blocks[0].marker).toBe(marker);
+      expect(blameElements()[0].querySelector(".git-blame-hash")).toBeNull();
+      expect(blameElements()[0].dataset.url).toBe(`https://example.test/${SHA_ONE}`);
+      expect(repository.getBlame.calls.count()).toBe(reads);
+    });
+
     it("rebinds visible blame when the owning repository is replaced", async () => {
       const blame = main.gutterForEditor(editor);
       await blame.setVisible(true);
@@ -681,6 +709,53 @@ describe("git-blame", () => {
       await settleDisplay();
       expect(label.getBoundingClientRect().top).toBeNear(initialTop);
       expect(label.getBoundingClientRect().top).toBeNear(block.getBoundingClientRect().top);
+    });
+
+    it("mounts a bounded set of commit blocks as the viewport moves", async () => {
+      const tooltip = jasmine.createSpyObj("tooltip", ["dispose"]);
+      spyOn(lumine.tooltips, "add").and.returnValue(tooltip);
+      const count = 1400;
+      const blame = main.gutterForEditor(editor);
+      editor.setText(Array.from({ length: count }, (_, row) => `line ${row}`).join("\n"));
+      repository.getBlame.and.resolveTo({
+        revision: null,
+        lines: Array.from({ length: count }, (_, row) =>
+          blameLine(row + 1, row % 2 === 0 ? SHA_ONE : SHA_TWO, "Ada"),
+        ),
+      });
+      editorElement.setHeight(160);
+      await blame.setVisible(true);
+      await settleDisplay();
+      const reads = repository.getBlame.calls.count();
+      const top = blame.blocks[0];
+      const target = blame.blocks[1000];
+      expect(blame.markers.length).toBe(count);
+      expect(top.item).toBeTruthy();
+      expect(target.item).toBeNull();
+      expect(blameDecorations().length).toBeLessThan(80);
+      blame.onMouseOver({ target: top.item, relatedTarget: null });
+
+      editor.getBuffer().setTextInRange(
+        [
+          [100, 0],
+          [100, 0],
+        ],
+        "inserted\n",
+      );
+      expect(target.marker.getStartBufferPosition().row).toBe(1001);
+      editorElement.setScrollTop(1001 * editor.getLineHeightInPixels());
+      await settleDisplay();
+      expect(top.item).toBeNull();
+      expect(top.marker.isDestroyed()).toBe(false);
+      expect(target.item?.isConnected).toBe(true);
+      expect(tooltip.dispose).toHaveBeenCalledTimes(1);
+      expect(blameDecorations().length).toBeLessThan(80);
+
+      editorElement.setScrollTop(0);
+      await settleDisplay();
+      expect(top.item?.isConnected).toBe(true);
+      expect(target.item).toBeNull();
+      expect(repository.getBlame.calls.count()).toBe(reads);
     });
 
     it("does not move a label past the bottom of its block", async () => {
